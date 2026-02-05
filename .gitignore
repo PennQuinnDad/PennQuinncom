@@ -1,0 +1,22 @@
+node_modules
+dist
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+
+# Don't commit images (too large for GitHub, upload separately to Lightsail)
+uploads/
+
+# Don't commit WordPress migration files (too large for GitHub)
+attached_assets/
+
+# Don't commit secrets
+.env
+.env.local
+
+# Keep the old Replit auth folder out (no longer needed)
+server/replit_integrations/
+
+# Replit state files (not needed)
+.local/
