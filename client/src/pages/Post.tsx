@@ -1,5 +1,6 @@
 import { Link, useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
+import DOMPurify from 'dompurify';
 import { fetchPostBySlug, fetchAllPosts, formatDate, type Post } from '@/lib/posts';
 import { useAuth } from '@/hooks/use-auth';
 import { Header } from '@/components/Header';
@@ -53,11 +54,17 @@ function processVideoEmbeds(content: string): string {
 
 function PostContent({ content }: { content: string }) {
   const processedContent = processVideoEmbeds(content);
-  
+
+  // Sanitize HTML to prevent XSS attacks while allowing safe tags
+  const sanitizedContent = DOMPurify.sanitize(processedContent, {
+    ADD_TAGS: ['iframe'],
+    ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'src', 'class'],
+  });
+
   return (
-    <div 
+    <div
       className="prose max-w-none"
-      dangerouslySetInnerHTML={{ __html: processedContent }}
+      dangerouslySetInnerHTML={{ __html: sanitizedContent }}
     />
   );
 }

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
@@ -60,7 +61,12 @@ export function registerAuthRoutes(app: Express): void {
       return res.status(500).json({ message: "Server configuration error" });
     }
 
-    if (password === adminPassword) {
+    // Use timing-safe comparison to prevent timing attacks
+    const passwordBuffer = Buffer.from(password.padEnd(256, '\0'));
+    const adminPasswordBuffer = Buffer.from(adminPassword.padEnd(256, '\0'));
+    const passwordMatch = crypto.timingSafeEqual(passwordBuffer, adminPasswordBuffer);
+
+    if (passwordMatch) {
       req.session.isAdmin = true;
       req.session.loginTime = Date.now();
       return res.json({
