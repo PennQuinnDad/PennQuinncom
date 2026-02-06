@@ -7,31 +7,119 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TagCombobox } from '@/components/TagCombobox';
-import { Calendar, Tag, Search, X, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Tag, Search, X, CalendarDays, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 
 const POSTS_PER_PAGE = 24;
 
+// Helper to extract quote text from post content
+function extractQuoteText(content: string): string {
+  // Strip HTML tags
+  const text = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  // Limit length for display
+  return text.length > 150 ? text.slice(0, 147) + '...' : text;
+}
+
+// Check if post is a "Said by" quote post
+function getQuoteType(tags: string[]): 'penn' | 'quinn' | null {
+  const lowerTags = tags.map(t => t.toLowerCase());
+  if (lowerTags.includes('said by penn')) return 'penn';
+  if (lowerTags.includes('said by quinn')) return 'quinn';
+  return null;
+}
+
+// Check if post contains a video (Vimeo or YouTube)
+function isVideoPost(content: string, categories: string[]): boolean {
+  const hasVideoCategory = categories.some(c => c.toLowerCase() === 'video');
+  const hasVideoEmbed = /vimeo|youtube|youtu\.be/i.test(content);
+  return hasVideoCategory || hasVideoEmbed;
+}
+
+// Extract video thumbnail URL from content
+function getVideoThumbnail(content: string): string | null {
+  // YouTube patterns: youtube.com/watch?v=ID, youtu.be/ID, youtube.com/embed/ID
+  const youtubeMatch = content.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if (youtubeMatch) {
+    return `https://img.youtube.com/vi/${youtubeMatch[1]}/hqdefault.jpg`;
+  }
+
+  // Vimeo patterns: vimeo.com/ID, player.vimeo.com/video/ID
+  const vimeoMatch = content.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (vimeoMatch) {
+    // Vimeo requires an API call for thumbnails, but we can use a proxy service
+    // or return null and let it fall back to the play button
+    return `https://vumbnail.com/${vimeoMatch[1]}.jpg`;
+  }
+
+  return null;
+}
+
+// Calculate age at the time of the post (Penn & Quinn born March 3, 2009)
+function getAgeAtPost(postDate: string | Date): number {
+  const birthDate = new Date('2009-03-03');
+  const post = new Date(postDate);
+  let age = post.getFullYear() - birthDate.getFullYear();
+  const monthDiff = post.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && post.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
+
 function PostCard({ post, onTagClick }: { post: Post; onTagClick: (tag: string) => void }) {
-  const featuredImage = post.featuredImage || extractFirstImage(post.content);
-  
+  const hasVideo = isVideoPost(post.content, post.categories);
+  const videoThumbnail = hasVideo ? getVideoThumbnail(post.content) : null;
+  const featuredImage = post.featuredImage || extractFirstImage(post.content) || videoThumbnail;
+  const quoteType = getQuoteType(post.tags);
+  const isQuotePost = quoteType !== null;
+
+  // Quote card backgrounds - blue for Penn, green for Quinn
+  const quoteStyles = {
+    penn: 'bg-gradient-to-br from-blue-500 to-blue-700',
+    quinn: 'bg-gradient-to-br from-emerald-500 to-teal-700',
+  };
+
   return (
-    <article 
+    <article
       data-testid={`post-card-${post.id}`}
       className="group bg-card rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-card-border"
     >
       <Link href={`/post/${post.slug}`}>
         <div className="cursor-pointer">
-          {featuredImage && (
-            <div className="aspect-[4/3] overflow-hidden bg-muted">
-              <img 
-                src={featuredImage} 
+          {isQuotePost ? (
+            <div className={`aspect-[4/3] ${quoteStyles[quoteType]} flex flex-col items-center justify-center p-6 text-white relative overflow-hidden`}>
+              <span className="absolute top-3 left-4 text-6xl opacity-20 font-serif">"</span>
+              <p className="text-center text-xl font-medium leading-relaxed z-10 line-clamp-4">
+                {extractQuoteText(post.content) || post.title}
+              </p>
+              <span className="absolute bottom-3 right-4 text-6xl opacity-20 font-serif rotate-180">"</span>
+              <span className="absolute bottom-3 left-4 text-sm opacity-70 font-medium">
+                — {quoteType === 'penn' ? 'Penn' : 'Quinn'} ({getAgeAtPost(post.date)} yrs old)
+              </span>
+            </div>
+          ) : featuredImage ? (
+            <div className="aspect-[4/3] overflow-hidden bg-muted relative">
+              <img
+                src={featuredImage}
                 alt={post.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 loading="lazy"
               />
+              {hasVideo && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full bg-black/60 flex items-center justify-center group-hover:bg-black/80 group-hover:scale-110 transition-all">
+                    <Play className="w-8 h-8 text-white fill-white ml-1" />
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-          {!featuredImage && (
+          ) : hasVideo ? (
+            <div className="aspect-[4/3] bg-gradient-to-br from-slate-800 to-slate-900 flex flex-col items-center justify-center relative">
+              <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 group-hover:scale-110 transition-all">
+                <Play className="w-10 h-10 text-white fill-white ml-1" />
+              </div>
+              <span className="mt-3 text-white/60 text-sm font-medium">Video</span>
+            </div>
+          ) : (
             <div className="aspect-[4/3] bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
               <span className="text-6xl opacity-30">📷</span>
             </div>
@@ -78,20 +166,57 @@ function PostCard({ post, onTagClick }: { post: Post; onTagClick: (tag: string) 
   );
 }
 
+// Storage key for filters
+const FILTER_STORAGE_KEY = 'pennquinn-home-filters';
+
+// Helper to get filters from sessionStorage
+function getSavedFilters() {
+  try {
+    const saved = sessionStorage.getItem(FILTER_STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch {}
+  return { q: '', tags: [], year: null, page: 1 };
+}
+
+// Helper to save filters to sessionStorage
+function saveFilters(filters: { q: string; tags: string[]; year: string | null; page: number }) {
+  try {
+    sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
+  } catch {}
+}
+
 export default function Home() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedYear, setSelectedYear] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  
+  // Initialize state from sessionStorage
+  const initialFilters = getSavedFilters();
+  const [searchQuery, setSearchQuery] = useState(initialFilters.q);
+  const [selectedTags, setSelectedTags] = useState<string[]>(initialFilters.tags);
+  const [selectedYear, setSelectedYear] = useState<string | null>(initialFilters.year);
+  const [currentPage, setCurrentPage] = useState(initialFilters.page);
+
+  // Save filters to sessionStorage whenever they change
+  useEffect(() => {
+    saveFilters({
+      q: searchQuery,
+      tags: selectedTags,
+      year: selectedYear,
+      page: currentPage,
+    });
+  }, [searchQuery, selectedTags, selectedYear, currentPage]);
+
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ['posts'],
     queryFn: fetchAllPosts,
   });
-  
-  // Reset to page 1 when filters change
+
+  // Reset to page 1 when search/tags/year filters change
+  const [hasInteracted, setHasInteracted] = useState(false);
   useEffect(() => {
-    setCurrentPage(1);
+    if (hasInteracted) {
+      setCurrentPage(1);
+    }
+    setHasInteracted(true);
   }, [searchQuery, selectedTags, selectedYear]);
   
   const allTags = useMemo(() => {
@@ -166,9 +291,18 @@ export default function Home() {
                 placeholder="Search posts..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 pr-8"
                 data-testid="search-input"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
             
             <TagCombobox
@@ -257,7 +391,7 @@ export default function Home() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                   data-testid="pagination-prev"
                 >
@@ -294,7 +428,7 @@ export default function Home() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                   data-testid="pagination-next"
                 >

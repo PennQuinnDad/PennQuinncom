@@ -16,7 +16,7 @@ export async function migrateDataIfNeeded() {
     console.log('[Migration] Database is empty, importing posts from bundled data...');
     
     // Import the bundled posts data
-    const postsData = await import("../posts-data.json");
+    const postsData = await import("../_archive/wordpress-migration/posts-data.json");
     const postsArray = postsData.default || postsData;
     
     if (!Array.isArray(postsArray) || postsArray.length === 0) {

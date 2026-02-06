@@ -185,13 +185,23 @@ export default function PostPage() {
             {post.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-4">
                 {post.tags.map(tag => (
-                  <span 
+                  <button
                     key={tag}
-                    className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-secondary rounded-full text-secondary-foreground"
+                    onClick={() => {
+                      // Save tag filter to sessionStorage so Home page picks it up
+                      sessionStorage.setItem('pennquinn-home-filters', JSON.stringify({
+                        q: '',
+                        tags: [tag],
+                        year: null,
+                        page: 1,
+                      }));
+                      window.location.href = '/';
+                    }}
+                    className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-secondary rounded-full text-secondary-foreground hover:bg-primary/20 hover:text-primary transition-colors cursor-pointer"
                   >
                     <Tag className="w-3.5 h-3.5" />
                     {tag}
-                  </span>
+                  </button>
                 ))}
               </div>
             )}
