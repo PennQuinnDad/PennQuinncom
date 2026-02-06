@@ -48,7 +48,15 @@ function processVideoEmbeds(content: string): string {
       return `<div class="aspect-video my-4"><iframe src="https://www.youtube.com/embed/${videoId}" class="w-full h-full rounded-lg" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
     }
   );
-  
+
+  // Process local mp4 video files - convert paths to video players
+  processed = processed.replace(
+    /(?:^|\s)(\/uploads\/[^\s<"]+\.mp4)(?:\s|$|<)/gi,
+    (match, videoPath) => {
+      return `<div class="aspect-video my-4"><video src="${videoPath}" class="w-full h-full rounded-lg" controls playsinline preload="metadata"></video></div>`;
+    }
+  );
+
   return processed;
 }
 
@@ -57,8 +65,8 @@ function PostContent({ content }: { content: string }) {
 
   // Sanitize HTML to prevent XSS attacks while allowing safe tags
   const sanitizedContent = DOMPurify.sanitize(processedContent, {
-    ADD_TAGS: ['iframe'],
-    ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'src', 'class'],
+    ADD_TAGS: ['iframe', 'video'],
+    ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'src', 'class', 'controls', 'playsinline', 'preload'],
   });
 
   return (
