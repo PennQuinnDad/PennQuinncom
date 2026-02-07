@@ -13,13 +13,24 @@ if (!DATABASE_URL) {
 
 // Parse the connection string manually since it has special characters
 // Format: postgresql://user:password@host:port/database
-const match = DATABASE_URL.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
-if (!match) {
-  console.error("Could not parse DATABASE_URL");
+// The password ends at the LAST @ before the host
+const withoutProtocol = DATABASE_URL.replace("postgresql://", "");
+const lastAtIndex = withoutProtocol.lastIndexOf("@");
+const userPassword = withoutProtocol.substring(0, lastAtIndex);
+const hostPortDb = withoutProtocol.substring(lastAtIndex + 1);
+
+const colonIndex = userPassword.indexOf(":");
+const user = userPassword.substring(0, colonIndex);
+const password = userPassword.substring(colonIndex + 1);
+
+const hostPortMatch = hostPortDb.match(/([^:]+):(\d+)\/(.+)/);
+if (!hostPortMatch) {
+  console.error("Could not parse host/port/database from DATABASE_URL");
   process.exit(1);
 }
+const [, host, port, database] = hostPortMatch;
 
-const [, user, password, host, port, database] = match;
+console.log(`Connecting to ${host}:${port}/${database} as ${user}`);
 
 const pool = new Pool({
   host: host,
