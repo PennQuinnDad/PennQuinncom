@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TagCombobox } from '@/components/TagCombobox';
-import { Calendar, Tag, Search, X, CalendarDays, ChevronLeft, ChevronRight, Play, Shuffle } from 'lucide-react';
+import { Calendar, Tag, Search, X, CalendarDays, ChevronLeft, ChevronRight, Play, Shuffle, ImageIcon } from 'lucide-react';
 
 const POSTS_PER_PAGE = 24;
 
@@ -120,8 +120,9 @@ const PostCard = memo(function PostCard({ post, onTagClick }: { post: Post; onTa
               <span className="mt-3 text-white/60 text-sm font-medium">Video</span>
             </div>
           ) : (
-            <div className="aspect-[4/3] bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-              <span className="text-6xl opacity-30">📷</span>
+            <div className="aspect-[4/3] bg-gradient-to-br from-primary/5 to-secondary/50 flex flex-col items-center justify-center">
+              <ImageIcon className="w-12 h-12 text-primary/20" strokeWidth={1.5} />
+              <span className="text-xs text-muted-foreground/50 mt-2">No image</span>
             </div>
           )}
           <div className="p-5 pb-2">
@@ -237,7 +238,14 @@ export default function Home() {
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
     posts.forEach(post => post.tags.forEach(tag => tagSet.add(tag)));
-    return Array.from(tagSet).sort();
+    // Sort alphabetically but put numeric-only tags (years) at the end
+    return Array.from(tagSet).sort((a, b) => {
+      const aIsNumeric = /^\d+$/.test(a);
+      const bIsNumeric = /^\d+$/.test(b);
+      if (aIsNumeric && !bIsNumeric) return 1;
+      if (!aIsNumeric && bIsNumeric) return -1;
+      return a.localeCompare(b);
+    });
   }, [posts]);
   
   const allYears = useMemo(() => {

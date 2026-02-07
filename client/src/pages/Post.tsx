@@ -272,9 +272,12 @@ export default function PostPage() {
             {post.content ? (
               <PostContent content={post.content} />
             ) : (
-              <p className="text-muted-foreground italic">
-                This post has no content available.
-              </p>
+              <div className="text-center py-12">
+                <div className="text-5xl mb-4 opacity-30">📝</div>
+                <p className="text-muted-foreground">
+                  This memory is just a title — sometimes that's all you need!
+                </p>
+              </div>
             )}
           </div>
           

@@ -1,7 +1,7 @@
 import { Link } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { User, LogIn, LogOut, Settings } from 'lucide-react';
+import { LogIn, LogOut, Settings } from 'lucide-react';
 
 interface HeaderProps {
   showAdminLink?: boolean;
@@ -38,22 +38,6 @@ export function Header({ showAdminLink = true }: HeaderProps) {
                   </Button>
                 </Link>
               )}
-              <div className="flex items-center gap-2">
-                {user?.profileImageUrl ? (
-                  <img 
-                    src={user.profileImageUrl} 
-                    alt={user.firstName || 'User'} 
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="w-4 h-4 text-primary" />
-                  </div>
-                )}
-                <span className="text-sm hidden sm:inline">
-                  {user?.firstName || user?.email || 'User'}
-                </span>
-              </div>
               <Button
                 variant="outline"
                 size="sm"
