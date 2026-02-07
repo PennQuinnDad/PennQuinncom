@@ -8,8 +8,11 @@ import { migrateDataIfNeeded } from "./migrate-data";
 const app = express();
 const httpServer = createServer(app);
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+// Serve uploaded files with aggressive caching (images don't change)
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
+  maxAge: '1y',
+  immutable: true,
+}));
 
 declare module "http" {
   interface IncomingMessage {

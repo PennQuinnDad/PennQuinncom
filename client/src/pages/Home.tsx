@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, memo } from 'react';
 import { Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAllPosts, formatDate, extractFirstImage, type Post } from '@/lib/posts';
@@ -65,7 +65,7 @@ function getAgeAtPost(postDate: string | Date): number {
   return age;
 }
 
-function PostCard({ post, onTagClick }: { post: Post; onTagClick: (tag: string) => void }) {
+const PostCard = memo(function PostCard({ post, onTagClick }: { post: Post; onTagClick: (tag: string) => void }) {
   const hasVideo = isVideoPost(post.content, post.categories);
   const videoThumbnail = hasVideo ? getVideoThumbnail(post.content) : null;
   const featuredImage = post.featuredImage || extractFirstImage(post.content) || videoThumbnail;
@@ -164,10 +164,20 @@ function PostCard({ post, onTagClick }: { post: Post; onTagClick: (tag: string) 
       )}
     </article>
   );
-}
+});
 
 // Storage key for filters
 const FILTER_STORAGE_KEY = 'pennquinn-home-filters';
+
+// Debounce hook for search input
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 // Helper to get filters from sessionStorage
 function getSavedFilters() {
@@ -195,6 +205,9 @@ export default function Home() {
   const [selectedYear, setSelectedYear] = useState<string | null>(initialFilters.year);
   const [currentPage, setCurrentPage] = useState(initialFilters.page);
 
+  // Debounce search query to avoid filtering on every keystroke
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
   // Save filters to sessionStorage whenever they change
   useEffect(() => {
     saveFilters({
@@ -217,7 +230,7 @@ export default function Home() {
       setCurrentPage(1);
     }
     setHasInteracted(true);
-  }, [searchQuery, selectedTags, selectedYear]);
+  }, [debouncedSearch, selectedTags, selectedYear]);
   
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -234,23 +247,37 @@ export default function Home() {
     return Array.from(yearSet).sort((a, b) => parseInt(b) - parseInt(a));
   }, [posts]);
   
+  // Pre-compute lowercase search term once
   const filteredPosts = useMemo(() => {
+    const searchLower = debouncedSearch.toLowerCase();
+    const selectedTagsLower = selectedTags.map(t => t.toLowerCase());
+
     return posts.filter(post => {
-      const matchesSearch = searchQuery === '' || 
-        post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        post.content.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesTags = selectedTags.length === 0 || 
-        selectedTags.every(selectedTag => 
-          post.tags.some(tag => tag.toLowerCase() === selectedTag.toLowerCase())
+      // Quick exit if no filters
+      if (!searchLower && selectedTagsLower.length === 0 && !selectedYear) {
+        return true;
+      }
+
+      // Search in title first (faster), then content only if needed
+      const matchesSearch = !searchLower ||
+        post.title.toLowerCase().includes(searchLower) ||
+        post.content.toLowerCase().includes(searchLower);
+
+      if (!matchesSearch) return false;
+
+      const matchesTags = selectedTagsLower.length === 0 ||
+        selectedTagsLower.every(selectedTag =>
+          post.tags.some(tag => tag.toLowerCase() === selectedTag)
         );
-      
-      const matchesYear = !selectedYear || 
+
+      if (!matchesTags) return false;
+
+      const matchesYear = !selectedYear ||
         new Date(post.date).getFullYear().toString() === selectedYear;
-      
-      return matchesSearch && matchesTags && matchesYear;
+
+      return matchesYear;
     });
-  }, [posts, searchQuery, selectedTags, selectedYear]);
+  }, [posts, debouncedSearch, selectedTags, selectedYear]);
   
   const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE);
   
@@ -259,11 +286,11 @@ export default function Home() {
     return filteredPosts.slice(startIndex, startIndex + POSTS_PER_PAGE);
   }, [filteredPosts, currentPage]);
   
-  const handleTagClick = (tag: string) => {
-    setSelectedTags(prev => 
+  const handleTagClick = useCallback((tag: string) => {
+    setSelectedTags(prev =>
       prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
     );
-  };
+  }, []);
   
   const removeTag = (tag: string) => {
     setSelectedTags(prev => prev.filter(t => t !== tag));

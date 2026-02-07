@@ -1,3 +1,4 @@
+import { useMemo, memo } from 'react';
 import { Link, useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
@@ -68,14 +69,15 @@ function processVideoEmbeds(content: string): string {
   return processed;
 }
 
-function PostContent({ content }: { content: string }) {
-  const processedContent = processVideoEmbeds(content);
-
-  // Sanitize HTML to prevent XSS attacks while allowing safe tags
-  const sanitizedContent = DOMPurify.sanitize(processedContent, {
-    ADD_TAGS: ['iframe', 'video'],
-    ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'src', 'class', 'controls', 'playsinline', 'preload'],
-  });
+const PostContent = memo(function PostContent({ content }: { content: string }) {
+  // Memoize the expensive processing and sanitization
+  const sanitizedContent = useMemo(() => {
+    const processedContent = processVideoEmbeds(content);
+    return DOMPurify.sanitize(processedContent, {
+      ADD_TAGS: ['iframe', 'video'],
+      ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'src', 'class', 'controls', 'playsinline', 'preload'],
+    });
+  }, [content]);
 
   return (
     <div
@@ -83,12 +85,12 @@ function PostContent({ content }: { content: string }) {
       dangerouslySetInnerHTML={{ __html: sanitizedContent }}
     />
   );
-}
+});
 
-function RelatedPost({ post, direction }: { post: Post; direction: 'prev' | 'next' }) {
+const RelatedPost = memo(function RelatedPost({ post, direction }: { post: Post; direction: 'prev' | 'next' }) {
   return (
     <Link href={`/post/${post.slug}`}>
-      <div 
+      <div
         className={`group flex items-center gap-3 p-4 rounded-lg bg-card border border-card-border hover:border-primary/30 transition-colors cursor-pointer ${
           direction === 'next' ? 'text-right flex-row-reverse' : ''
         }`}
@@ -111,7 +113,7 @@ function RelatedPost({ post, direction }: { post: Post; direction: 'prev' | 'nex
       </div>
     </Link>
   );
-}
+});
 
 export default function PostPage() {
   const params = useParams();
