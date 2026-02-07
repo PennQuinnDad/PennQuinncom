@@ -1,43 +1,12 @@
 const { Pool } = require("pg");
-const fs = require("fs");
 
-// Read database URL from .env file
-const envContent = fs.readFileSync(".env", "utf8");
-const dbUrlMatch = envContent.match(/DATABASE_URL="([^"]+)"/);
-const DATABASE_URL = dbUrlMatch ? dbUrlMatch[1] : null;
-
-if (!DATABASE_URL) {
-  console.error("DATABASE_URL not found in .env file");
-  process.exit(1);
-}
-
-// Parse the connection string manually since it has special characters
-// Format: postgresql://user:password@host:port/database
-// The password ends at the LAST @ before the host
-const withoutProtocol = DATABASE_URL.replace("postgresql://", "");
-const lastAtIndex = withoutProtocol.lastIndexOf("@");
-const userPassword = withoutProtocol.substring(0, lastAtIndex);
-const hostPortDb = withoutProtocol.substring(lastAtIndex + 1);
-
-const colonIndex = userPassword.indexOf(":");
-const user = userPassword.substring(0, colonIndex);
-const password = userPassword.substring(colonIndex + 1);
-
-const hostPortMatch = hostPortDb.match(/([^:]+):(\d+)\/(.+)/);
-if (!hostPortMatch) {
-  console.error("Could not parse host/port/database from DATABASE_URL");
-  process.exit(1);
-}
-const [, host, port, database] = hostPortMatch;
-
-console.log(`Connecting to ${host}:${port}/${database} as ${user}`);
-
+// Use the same connection details as the systemd service
 const pool = new Pool({
-  host: host,
-  port: parseInt(port),
-  database: database,
-  user: user,
-  password: password,
+  host: "ls-6a2c055e68703232d005b2538032dfdff31b2682.cfjrgltnykyd.us-west-2.rds.amazonaws.com",
+  port: 5432,
+  database: "pennquinn",
+  user: "dbmasteruser",
+  password: "PennQuinn2024db",
   ssl: { rejectUnauthorized: false }
 });
 
