@@ -1,11 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPostSchema, updatePostSchema } from "@shared/schema";
+import { insertPostSchema, updatePostSchema, insertMediaSchema } from "@shared/schema";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { exec } from "child_process";
 
 // Configure multer for file uploads
 const uploadStorage = multer.diskStorage({
@@ -30,18 +31,41 @@ const uploadStorage = multer.diskStorage({
 
 const upload = multer({
   storage: uploadStorage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit for videos
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const allowedTypes = /jpeg|jpg|png|gif|webp|mp4|mov|avi|webm/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    const allowedMimes = /image\/(jpeg|png|gif|webp)|video\/(mp4|quicktime|x-msvideo|webm)/;
+    const mimetype = allowedMimes.test(file.mimetype);
     if (extname && mimetype) {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed'));
+      cb(new Error('Only image and video files are allowed'));
     }
   }
 });
+
+// Helper to get image dimensions
+function getImageDimensions(filePath: string): Promise<{ width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    exec(`sips -g pixelWidth -g pixelHeight "${filePath}"`, (err, stdout) => {
+      if (err) {
+        resolve(null);
+        return;
+      }
+      const widthMatch = stdout.match(/pixelWidth:\s*(\d+)/);
+      const heightMatch = stdout.match(/pixelHeight:\s*(\d+)/);
+      if (widthMatch && heightMatch) {
+        resolve({
+          width: parseInt(widthMatch[1], 10),
+          height: parseInt(heightMatch[1], 10),
+        });
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -161,19 +185,19 @@ export async function registerRoutes(
     }
   });
 
-  // Image upload endpoint
+  // Image upload endpoint (legacy - still works but doesn't add to media library)
   app.post("/api/upload", isAuthenticated, upload.single('image'), (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
       }
-      
+
       // Generate the public URL path
       const year = new Date().getFullYear();
       const month = String(new Date().getMonth() + 1).padStart(2, '0');
       const imagePath = `/uploads/${year}/${month}/${req.file.filename}`;
-      
-      res.json({ 
+
+      res.json({
         url: imagePath,
         filename: req.file.filename,
         originalName: req.file.originalname,
@@ -181,6 +205,100 @@ export async function registerRoutes(
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to upload image" });
+    }
+  });
+
+  // ============ MEDIA LIBRARY ENDPOINTS ============
+
+  // Get all media
+  app.get("/api/media", isAuthenticated, async (req, res) => {
+    try {
+      const mediaItems = await storage.getAllMedia();
+      res.json(mediaItems);
+    } catch (error) {
+      console.error("[API] Error fetching media:", error);
+      res.status(500).json({ error: "Failed to fetch media" });
+    }
+  });
+
+  // Upload media to library
+  app.post("/api/media/upload", isAuthenticated, upload.array('files', 50), async (req, res) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: "No files uploaded" });
+      }
+
+      const year = new Date().getFullYear();
+      const month = String(new Date().getMonth() + 1).padStart(2, '0');
+      const uploadedMedia = [];
+
+      for (const file of files) {
+        const url = `/uploads/${year}/${month}/${file.filename}`;
+        const filePath = file.path;
+
+        // Try to get image dimensions
+        let width = null;
+        let height = null;
+        if (file.mimetype.startsWith('image/')) {
+          const dims = await getImageDimensions(filePath);
+          if (dims) {
+            width = dims.width;
+            height = dims.height;
+          }
+        }
+
+        const mediaItem = await storage.createMedia({
+          filename: file.filename,
+          originalName: file.originalname,
+          url,
+          mimeType: file.mimetype,
+          size: file.size,
+          width,
+          height,
+          alt: '',
+        });
+
+        uploadedMedia.push(mediaItem);
+      }
+
+      res.status(201).json(uploadedMedia);
+    } catch (error) {
+      console.error("[API] Error uploading media:", error);
+      res.status(500).json({ error: "Failed to upload media" });
+    }
+  });
+
+  // Delete media
+  app.delete("/api/media/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid media ID" });
+      }
+
+      // Get the media item first to delete the file
+      const mediaItem = await storage.getMediaById(id);
+      if (!mediaItem) {
+        return res.status(404).json({ error: "Media not found" });
+      }
+
+      // Delete the file from disk
+      const filePath = path.join(process.cwd(), mediaItem.url);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+
+      // Delete from database
+      const deleted = await storage.deleteMedia(id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Media not found" });
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("[API] Error deleting media:", error);
+      res.status(500).json({ error: "Failed to delete media" });
     }
   });
 

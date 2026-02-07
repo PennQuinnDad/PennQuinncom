@@ -1,4 +1,4 @@
-import { type Post, type InsertPost, type UpdatePost, posts } from "@shared/schema";
+import { type Post, type InsertPost, type UpdatePost, posts, type Media, type InsertMedia, media } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, like } from "drizzle-orm";
 
@@ -10,6 +10,11 @@ export interface IStorage {
   createPost(post: InsertPost): Promise<Post>;
   updatePost(id: number, post: UpdatePost): Promise<Post | undefined>;
   deletePost(id: number): Promise<boolean>;
+  // Media operations
+  getAllMedia(): Promise<Media[]>;
+  getMediaById(id: number): Promise<Media | undefined>;
+  createMedia(item: InsertMedia): Promise<Media>;
+  deleteMedia(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -70,6 +75,26 @@ export class DatabaseStorage implements IStorage {
 
   async deletePost(id: number): Promise<boolean> {
     const result = await db.delete(posts).where(eq(posts.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Media operations
+  async getAllMedia(): Promise<Media[]> {
+    return db.select().from(media).orderBy(desc(media.uploadedAt));
+  }
+
+  async getMediaById(id: number): Promise<Media | undefined> {
+    const [item] = await db.select().from(media).where(eq(media.id, id));
+    return item;
+  }
+
+  async createMedia(item: InsertMedia): Promise<Media> {
+    const [newMedia] = await db.insert(media).values(item).returning();
+    return newMedia;
+  }
+
+  async deleteMedia(id: number): Promise<boolean> {
+    const result = await db.delete(media).where(eq(media.id, id)).returning();
     return result.length > 0;
   }
 }

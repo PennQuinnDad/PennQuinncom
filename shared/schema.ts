@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -20,6 +20,20 @@ export const posts = pgTable("posts", {
   galleryImages: text("gallery_images").array().notNull().default(sql`'{}'::text[]`),
 });
 
+export const media = pgTable("media", {
+  id: serial("id").primaryKey(),
+  filename: text("filename").notNull(),
+  originalName: text("original_name").notNull(),
+  url: text("url").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  width: integer("width"),
+  height: integer("height"),
+  uploadedAt: timestamp("uploaded_at").notNull().defaultNow(),
+  takenAt: timestamp("taken_at"),
+  alt: text("alt").default(""),
+});
+
 export const insertPostSchema = createInsertSchema(posts, {
   date: z.coerce.date(),
 }).omit({
@@ -35,3 +49,13 @@ export const updatePostSchema = createInsertSchema(posts, {
 export type InsertPost = z.infer<typeof insertPostSchema>;
 export type UpdatePost = z.infer<typeof updatePostSchema>;
 export type Post = typeof posts.$inferSelect;
+
+export const insertMediaSchema = createInsertSchema(media, {
+  uploadedAt: z.coerce.date().optional(),
+  takenAt: z.coerce.date().optional(),
+}).omit({
+  id: true,
+});
+
+export type InsertMedia = z.infer<typeof insertMediaSchema>;
+export type Media = typeof media.$inferSelect;

@@ -9,8 +9,9 @@ import { Input } from '@/components/ui/input';
 import { ClearableInput } from '@/components/ClearableInput';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, X, Save, LogIn, Upload, Image, Video, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, LogIn, Upload, Image, Video, Search, ArrowUpDown, ArrowUp, ArrowDown, ImagePlus, FolderOpen } from 'lucide-react';
 import { ImageUploadModal } from '@/components/ImageUploadModal';
+import { MediaPicker } from '@/components/MediaPicker';
 import { DateInput } from '@/components/DateInput';
 
 type PostFormData = {
@@ -191,15 +192,15 @@ function QuickVideoPost({ onCreated }: { onCreated: () => void }) {
   );
 }
 
-function PostForm({ 
-  post, 
-  onSave, 
+function PostForm({
+  post,
+  onSave,
   onCancel,
   onDelete,
-  isSaving 
-}: { 
-  post?: Post; 
-  onSave: (data: PostFormData) => void; 
+  isSaving
+}: {
+  post?: Post;
+  onSave: (data: PostFormData) => void;
   onCancel: () => void;
   onDelete?: () => void;
   isSaving: boolean;
@@ -214,6 +215,8 @@ function PostForm({
     galleryImages: post?.galleryImages || [],
     date: post?.date ? new Date(post.date) : new Date(),
   });
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [mediaPickerTarget, setMediaPickerTarget] = useState<'featured' | 'gallery' | 'content'>('featured');
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const title = e.target.value;
@@ -224,7 +227,34 @@ function PostForm({
     }));
   };
 
+  const openMediaPicker = (target: 'featured' | 'gallery' | 'content') => {
+    setMediaPickerTarget(target);
+    setShowMediaPicker(true);
+  };
+
+  const handleMediaSelect = (urls: string[]) => {
+    if (mediaPickerTarget === 'featured' && urls.length > 0) {
+      setFormData(prev => ({ ...prev, featuredImage: urls[0] }));
+    } else if (mediaPickerTarget === 'gallery') {
+      setFormData(prev => ({ ...prev, galleryImages: [...prev.galleryImages, ...urls] }));
+    } else if (mediaPickerTarget === 'content') {
+      const imageHtml = urls.map(url => `<img src="${url}" alt="" />`).join('\n');
+      setFormData(prev => ({
+        ...prev,
+        content: prev.content ? `${prev.content}\n\n${imageHtml}` : imageHtml
+      }));
+    }
+  };
+
   return (
+    <>
+    <MediaPicker
+      isOpen={showMediaPicker}
+      onClose={() => setShowMediaPicker(false)}
+      onSelect={handleMediaSelect}
+      multiple={mediaPickerTarget !== 'featured'}
+      mediaType="image"
+    />
     <div className="bg-card border border-border rounded-lg p-6">
       <h3 className="font-display text-xl mb-4">
         {post ? 'Edit Post' : 'New Post'}
@@ -297,7 +327,7 @@ function PostForm({
         </div>
         
         <div>
-          <label className="block text-sm font-medium mb-1">Featured Image URL</label>
+          <label className="block text-sm font-medium mb-1">Featured Image</label>
           <div className="flex gap-2">
             <ClearableInput
               data-testid="input-featured-image"
@@ -307,7 +337,15 @@ function PostForm({
               placeholder="/uploads/2024/01/image.jpg"
               className="flex-1"
             />
-            <ImageUploadModal 
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => openMediaPicker('featured')}
+            >
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Library
+            </Button>
+            <ImageUploadModal
               onImageUploaded={(url) => setFormData(prev => ({ ...prev, featuredImage: url }))}
             />
           </div>
@@ -332,8 +370,19 @@ function PostForm({
         
         <div>
           <label className="block text-sm font-medium mb-1">Gallery Images</label>
-          <p className="text-xs text-muted-foreground mb-2">Add additional images to display in a grid</p>
-          
+          <div className="flex items-center gap-2 mb-2">
+            <p className="text-xs text-muted-foreground">Add additional images to display in a grid</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => openMediaPicker('gallery')}
+            >
+              <FolderOpen className="w-4 h-4 mr-1" />
+              From Library
+            </Button>
+          </div>
+
           <div className="grid grid-cols-4 gap-2 mb-2">
             {formData.galleryImages.map((url, index) => (
               <div key={index} className="relative aspect-square bg-muted rounded overflow-hidden group">
@@ -362,7 +411,7 @@ function PostForm({
                 </button>
               </div>
             ))}
-            
+
             <label className="aspect-square border-2 border-dashed border-border rounded flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
               <input
                 type="file"
@@ -372,17 +421,17 @@ function PostForm({
                 onChange={async (e) => {
                   const files = e.target.files;
                   if (!files) return;
-                  
+
                   for (const file of Array.from(files)) {
                     const formDataUpload = new FormData();
                     formDataUpload.append('image', file);
-                    
+
                     try {
                       const response = await fetch('/api/upload', {
                         method: 'POST',
                         body: formDataUpload,
                       });
-                      
+
                       if (response.ok) {
                         const data = await response.json();
                         setFormData(prev => ({
@@ -399,7 +448,7 @@ function PostForm({
                 data-testid="input-gallery-upload"
               />
               <Image className="w-6 h-6 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground mt-1">Add</span>
+              <span className="text-xs text-muted-foreground mt-1">Upload</span>
             </label>
           </div>
         </div>
@@ -458,6 +507,7 @@ function PostForm({
         </div>
       </div>
     </div>
+    </>
   );
 }
 
@@ -652,13 +702,19 @@ export default function Admin() {
         {!isCreating && !editingPost && (
           <>
             <div className="flex flex-wrap gap-4 items-center mb-6">
-              <Button 
+              <Button
                 data-testid="button-new-post"
                 onClick={() => setIsCreating(true)}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 New Post
               </Button>
+              <Link href="/admin/media">
+                <Button variant="outline">
+                  <ImagePlus className="w-4 h-4 mr-2" />
+                  Media Library
+                </Button>
+              </Link>
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
