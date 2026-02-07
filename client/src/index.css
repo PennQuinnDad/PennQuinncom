@@ -49,7 +49,7 @@
   --elevate-1: rgba(0,0,0, .02);
   --elevate-2: rgba(0,0,0, .06);
 
-  /* Apple-inspired light mode - clean grays with blue accent */
+  /* Apple-inspired light mode with colorful accents */
   --background: 220 14% 98%;
   --foreground: 220 13% 10%;
   --border: 220 10% 90%;
@@ -85,6 +85,15 @@
   --chart-4: 280 65% 60%;
   --chart-5: 0 84% 60%;
 
+  /* Multi-color palette for tags */
+  --tag-blue: 211 100% 50%;
+  --tag-purple: 270 70% 60%;
+  --tag-pink: 330 80% 60%;
+  --tag-coral: 15 85% 60%;
+  --tag-amber: 38 92% 50%;
+  --tag-teal: 175 70% 42%;
+  --tag-green: 142 70% 45%;
+
   --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
   --font-serif: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'SF Mono', Menlo, monospace;
@@ -110,7 +119,7 @@
   --elevate-1: rgba(255,255,255, .03);
   --elevate-2: rgba(255,255,255, .07);
 
-  /* Apple-inspired dark mode - deep grays with blue accent */
+  /* Apple-inspired dark mode with colorful accents */
   --background: 220 13% 8%;
   --foreground: 220 14% 93%;
   --border: 220 10% 18%;
@@ -145,6 +154,15 @@
   --chart-3: 38 88% 55%;
   --chart-4: 280 60% 65%;
   --chart-5: 0 72% 55%;
+
+  /* Multi-color palette for tags - brighter in dark mode */
+  --tag-blue: 211 100% 60%;
+  --tag-purple: 270 75% 65%;
+  --tag-pink: 330 85% 65%;
+  --tag-coral: 15 90% 65%;
+  --tag-amber: 38 95% 55%;
+  --tag-teal: 175 75% 48%;
+  --tag-green: 142 75% 50%;
 }
 
 @layer base {
@@ -167,28 +185,52 @@
   .font-display {
     font-family: var(--font-serif);
   }
-  
+
   .prose img {
     @apply rounded-lg shadow-md my-6;
     max-width: 100%;
     height: auto;
   }
-  
+
   .prose p {
     @apply mb-4 leading-relaxed;
   }
-  
+
   .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  
+
   .line-clamp-3 {
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  /* Colorful tag styles */
+  .tag-blue { background: hsl(var(--tag-blue) / 0.12); color: hsl(var(--tag-blue)); }
+  .tag-blue:hover { background: hsl(var(--tag-blue) / 0.2); }
+  .tag-purple { background: hsl(var(--tag-purple) / 0.12); color: hsl(var(--tag-purple)); }
+  .tag-purple:hover { background: hsl(var(--tag-purple) / 0.2); }
+  .tag-pink { background: hsl(var(--tag-pink) / 0.12); color: hsl(var(--tag-pink)); }
+  .tag-pink:hover { background: hsl(var(--tag-pink) / 0.2); }
+  .tag-coral { background: hsl(var(--tag-coral) / 0.12); color: hsl(var(--tag-coral)); }
+  .tag-coral:hover { background: hsl(var(--tag-coral) / 0.2); }
+  .tag-amber { background: hsl(var(--tag-amber) / 0.12); color: hsl(var(--tag-amber)); }
+  .tag-amber:hover { background: hsl(var(--tag-amber) / 0.2); }
+  .tag-teal { background: hsl(var(--tag-teal) / 0.12); color: hsl(var(--tag-teal)); }
+  .tag-teal:hover { background: hsl(var(--tag-teal) / 0.2); }
+  .tag-green { background: hsl(var(--tag-green) / 0.12); color: hsl(var(--tag-green)); }
+  .tag-green:hover { background: hsl(var(--tag-green) / 0.2); }
+
+  /* Gradient header text */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(var(--tag-coral)) 0%, hsl(var(--tag-pink)) 50%, hsl(var(--tag-purple)) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }

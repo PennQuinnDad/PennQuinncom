@@ -8,6 +8,16 @@ import { Header } from '@/components/Header';
 import { Calendar, Tag, Home, ChevronLeft, ChevronRight, Pencil, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+// Tag color classes - consistent colors based on tag name
+const TAG_COLORS = ['tag-blue', 'tag-purple', 'tag-pink', 'tag-coral', 'tag-amber', 'tag-teal', 'tag-green'];
+function getTagColor(tag: string): string {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+}
+
 function processVideoEmbeds(content: string): string {
   let processed = content;
   
@@ -258,7 +268,7 @@ export default function PostPage() {
                       }));
                       window.location.href = '/';
                     }}
-                    className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-secondary rounded-full text-secondary-foreground hover:bg-primary/20 hover:text-primary transition-colors cursor-pointer"
+                    className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full transition-colors cursor-pointer font-medium ${getTagColor(tag)}`}
                   >
                     <Tag className="w-3.5 h-3.5" />
                     {tag}

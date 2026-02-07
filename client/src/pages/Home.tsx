@@ -11,6 +11,17 @@ import { Calendar, Tag, Search, X, CalendarDays, ChevronLeft, ChevronRight, Play
 
 const POSTS_PER_PAGE = 24;
 
+// Tag color classes - consistent colors based on tag name
+const TAG_COLORS = ['tag-blue', 'tag-purple', 'tag-pink', 'tag-coral', 'tag-amber', 'tag-teal', 'tag-green'];
+function getTagColor(tag: string): string {
+  // Use a simple hash to get consistent color for each tag
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+}
+
 // Helper to extract quote text from post content
 function extractQuoteText(content: string): string {
   // Strip HTML tags
@@ -149,7 +160,7 @@ const PostCard = memo(function PostCard({ post, onTagClick }: { post: Post; onTa
                 e.preventDefault();
                 onTagClick(tag);
               }}
-              className="inline-flex items-center gap-1 text-xs px-2.5 py-1 bg-secondary rounded-full text-secondary-foreground hover:bg-primary/20 hover:text-primary transition-colors cursor-pointer"
+              className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full transition-colors cursor-pointer font-medium ${getTagColor(tag)}`}
               data-testid={`tag-${tag}`}
             >
               <Tag className="w-3 h-3" />
@@ -403,7 +414,7 @@ export default function Home() {
                 <button
                   key={tag}
                   onClick={() => removeTag(tag)}
-                  className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
+                  className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full transition-colors font-medium ${getTagColor(tag)}`}
                   data-testid={`selected-tag-badge-${tag}`}
                 >
                   <Tag className="w-3.5 h-3.5" />
@@ -414,7 +425,7 @@ export default function Home() {
               {selectedYear && (
                 <button
                   onClick={() => setSelectedYear(null)}
-                  className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
+                  className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 tag-amber rounded-full transition-colors font-medium"
                   data-testid="selected-year-badge"
                 >
                   <CalendarDays className="w-3.5 h-3.5" />

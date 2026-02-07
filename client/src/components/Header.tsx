@@ -15,9 +15,9 @@ export function Header({ showAdminLink = true }: HeaderProps) {
       <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
         <div>
           <Link href="/">
-            <h1 
+            <h1
               data-testid="site-title"
-              className="font-display text-3xl text-foreground hover:text-primary transition-colors cursor-pointer"
+              className="font-display text-3xl gradient-text hover:opacity-80 transition-opacity cursor-pointer"
             >
               PennQuinn.com
             </h1>
