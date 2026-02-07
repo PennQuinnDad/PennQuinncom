@@ -11,14 +11,22 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-// Parse the URL manually to handle special characters in password
-const url = new URL(DATABASE_URL);
+// Parse the connection string manually since it has special characters
+// Format: postgresql://user:password@host:port/database
+const match = DATABASE_URL.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
+if (!match) {
+  console.error("Could not parse DATABASE_URL");
+  process.exit(1);
+}
+
+const [, user, password, host, port, database] = match;
+
 const pool = new Pool({
-  host: url.hostname,
-  port: parseInt(url.port) || 5432,
-  database: url.pathname.slice(1),
-  user: decodeURIComponent(url.username),
-  password: decodeURIComponent(url.password),
+  host: host,
+  port: parseInt(port),
+  database: database,
+  user: user,
+  password: password,
   ssl: { rejectUnauthorized: false }
 });
 
