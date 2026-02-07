@@ -1,11 +1,11 @@
-import { useMemo, memo } from 'react';
+import { useMemo, memo, useEffect } from 'react';
 import { Link, useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import { fetchPostBySlug, fetchAllPosts, formatDate, type Post } from '@/lib/posts';
 import { useAuth } from '@/hooks/use-auth';
 import { Header } from '@/components/Header';
-import { Calendar, Tag, ArrowLeft, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
+import { Calendar, Tag, Home, ChevronLeft, ChevronRight, Pencil, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 function processVideoEmbeds(content: string): string {
@@ -120,22 +120,59 @@ export default function PostPage() {
   const slug = params.slug;
   const [, setLocation] = useLocation();
   const { isAuthenticated } = useAuth();
-  
+
   const { data: post, isLoading: postLoading } = useQuery({
     queryKey: ['post', slug],
     queryFn: () => fetchPostBySlug(slug!),
     enabled: !!slug,
   });
-  
+
   const { data: allPosts = [] } = useQuery({
     queryKey: ['posts'],
     queryFn: fetchAllPosts,
   });
-  
+
+  const currentIndex = allPosts.findIndex(p => p.slug === post?.slug);
+  const prevPost = currentIndex < allPosts.length - 1 ? allPosts[currentIndex + 1] : null;
+  const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
+
+  // Scroll to top when post changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [slug]);
+
+  // Keyboard navigation between posts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't navigate if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.key === 'ArrowLeft' && prevPost) {
+        setLocation(`/post/${prevPost.slug}`);
+      } else if (e.key === 'ArrowRight' && nextPost) {
+        setLocation(`/post/${nextPost.slug}`);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [prevPost, nextPost, setLocation]);
+
   if (postLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="min-h-screen">
+        <Header />
+        <main className="max-w-4xl mx-auto px-6 py-10 animate-pulse">
+          <div className="h-4 bg-muted rounded w-24 mb-8" />
+          <div className="h-12 bg-muted rounded w-3/4 mb-4" />
+          <div className="h-5 bg-muted rounded w-48 mb-8" />
+          <div className="border-t border-border pt-8 space-y-4">
+            <div className="h-4 bg-muted rounded w-full" />
+            <div className="h-4 bg-muted rounded w-5/6" />
+            <div className="h-4 bg-muted rounded w-4/5" />
+            <div className="h-64 bg-muted rounded w-full mt-6" />
+          </div>
+        </main>
       </div>
     );
   }
@@ -156,16 +193,22 @@ export default function PostPage() {
       </div>
     );
   }
-  
-  const currentIndex = allPosts.findIndex(p => p.slug === post.slug);
-  const prevPost = currentIndex < allPosts.length - 1 ? allPosts[currentIndex + 1] : null;
-  const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
-  
+
   return (
     <div className="min-h-screen">
       <Header />
-      
+
       <main className="max-w-4xl mx-auto px-6 py-10">
+        {/* Breadcrumb navigation */}
+        <nav className="mb-6">
+          <Link href="/">
+            <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer">
+              <Home className="w-4 h-4" />
+              All Posts
+            </span>
+          </Link>
+        </nav>
+
         <article data-testid={`post-${post.id}`}>
           <header className="mb-8">
             <div className="flex items-start justify-between gap-4">

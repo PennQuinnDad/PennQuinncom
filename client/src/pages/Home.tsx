@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, memo } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAllPosts, formatDate, extractFirstImage, type Post } from '@/lib/posts';
 import { Header } from '@/components/Header';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TagCombobox } from '@/components/TagCombobox';
-import { Calendar, Tag, Search, X, CalendarDays, ChevronLeft, ChevronRight, Play } from 'lucide-react';
+import { Calendar, Tag, Search, X, CalendarDays, ChevronLeft, ChevronRight, Play, Shuffle } from 'lucide-react';
 
 const POSTS_PER_PAGE = 24;
 
@@ -198,6 +198,8 @@ function saveFilters(filters: { q: string; tags: string[]; year: string | null; 
 }
 
 export default function Home() {
+  const [, setLocation] = useLocation();
+
   // Initialize state from sessionStorage
   const initialFilters = getSavedFilters();
   const [searchQuery, setSearchQuery] = useState(initialFilters.q);
@@ -301,6 +303,13 @@ export default function Home() {
     setSelectedTags([]);
     setSelectedYear(null);
   };
+
+  const goToRandomPost = useCallback(() => {
+    if (posts.length > 0) {
+      const randomPost = posts[Math.floor(Math.random() * posts.length)];
+      setLocation(`/post/${randomPost.slug}`);
+    }
+  }, [posts, setLocation]);
   
   return (
     <div className="min-h-screen">
@@ -308,7 +317,20 @@ export default function Home() {
       
       <main className="max-w-6xl mx-auto px-6 py-10">
         <div className="mb-8">
-          <h2 className="font-display text-2xl mb-4">Latest Posts</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-2xl">Latest Posts</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToRandomPost}
+              disabled={posts.length === 0}
+              className="gap-2 hover:bg-primary/10 hover:text-primary hover:border-primary/50"
+            >
+              <Shuffle className="w-4 h-4" />
+              <span className="hidden sm:inline">Random Memory</span>
+              <span className="sm:hidden">Random</span>
+            </Button>
+          </div>
           
           <div className="flex flex-col sm:flex-row gap-4 items-center">
             <div className="relative w-full max-w-xs">
@@ -402,8 +424,20 @@ export default function Home() {
         </div>
         
         {isLoading ? (
-          <div className="text-center py-20">
-            <p className="text-muted-foreground text-lg">Loading posts...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-card rounded-xl overflow-hidden shadow-sm border border-card-border animate-pulse">
+                <div className="aspect-[4/3] bg-muted" />
+                <div className="p-5">
+                  <div className="h-6 bg-muted rounded w-3/4 mb-3" />
+                  <div className="h-4 bg-muted rounded w-1/2 mb-4" />
+                  <div className="flex gap-2">
+                    <div className="h-6 bg-muted rounded-full w-16" />
+                    <div className="h-6 bg-muted rounded-full w-20" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <>
@@ -469,14 +503,26 @@ export default function Home() {
         
         {!isLoading && paginatedPosts.length === 0 && (
           <div className="text-center py-20">
-            <p className="text-muted-foreground text-lg">No posts found.</p>
+            <div className="text-8xl mb-6 opacity-50">🔍</div>
+            <h3 className="font-display text-2xl mb-2">No memories found</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              {searchQuery
+                ? `We couldn't find any posts matching "${searchQuery}"`
+                : selectedTags.length > 0
+                  ? `No posts with ${selectedTags.length === 1 ? 'this tag' : 'these tags'} yet`
+                  : selectedYear
+                    ? `No posts from ${selectedYear}`
+                    : 'No posts available'}
+            </p>
             {(searchQuery || selectedTags.length > 0 || selectedYear) && (
-              <button
+              <Button
+                variant="outline"
                 onClick={clearFilters}
-                className="mt-4 text-primary hover:underline"
+                className="gap-2"
               >
-                Clear filters
-              </button>
+                <X className="w-4 h-4" />
+                Clear all filters
+              </Button>
             )}
           </div>
         )}
