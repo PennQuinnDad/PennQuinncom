@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ClearableInput } from '@/components/ClearableInput';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, X, Save, LogIn, Upload, Image, Video, Search, ArrowUpDown, ArrowUp, ArrowDown, ImagePlus, FolderOpen } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, LogIn, Upload, Image, Video, Search, ArrowUpDown, ArrowUp, ArrowDown, ImagePlus, FolderOpen, ImageOff, Filter } from 'lucide-react';
 import { ImageUploadModal } from '@/components/ImageUploadModal';
 import { MediaPicker } from '@/components/MediaPicker';
 import { DateInput } from '@/components/DateInput';
@@ -31,6 +31,25 @@ function generateSlug(title: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
+
+// Helper to check if a post has any visual content
+function hasVisualContent(post: Post): boolean {
+  // Check for featured image
+  if (post.featuredImage && post.featuredImage.trim() !== '') {
+    return true;
+  }
+  // Check for images in content
+  if (/<img[^>]+src=["'][^"']+["']/.test(post.content)) {
+    return true;
+  }
+  // Check for video embeds (Vimeo, YouTube)
+  if (/vimeo|youtube|youtu\.be/i.test(post.content)) {
+    return true;
+  }
+  return false;
+}
+
+type ImageFilter = 'all' | 'missing' | 'has-image';
 
 function extractVimeoId(url: string): string | null {
   const patterns = [
@@ -515,6 +534,7 @@ export default function Admin() {
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [imageFilter, setImageFilter] = useState<ImageFilter>('all');
   const [sortColumn, setSortColumn] = useState<'title' | 'date' | 'categories'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const { toast } = useToast();
@@ -538,17 +558,24 @@ export default function Admin() {
   
   const filteredPosts = useMemo(() => {
     let result = posts;
-    
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(post => 
+      result = result.filter(post =>
         post.title.toLowerCase().includes(query) ||
         post.content.toLowerCase().includes(query) ||
         post.categories.some(c => c.toLowerCase().includes(query)) ||
         post.tags.some(t => t.toLowerCase().includes(query))
       );
     }
-    
+
+    // Apply image filter
+    if (imageFilter === 'missing') {
+      result = result.filter(post => !hasVisualContent(post));
+    } else if (imageFilter === 'has-image') {
+      result = result.filter(post => hasVisualContent(post));
+    }
+
     result = [...result].sort((a, b) => {
       let comparison = 0;
       if (sortColumn === 'title') {
@@ -560,9 +587,14 @@ export default function Admin() {
       }
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-    
+
     return result;
-  }, [posts, searchQuery, sortColumn, sortDirection]);
+  }, [posts, searchQuery, imageFilter, sortColumn, sortDirection]);
+
+  // Count posts missing images for the filter badge
+  const missingImagesCount = useMemo(() => {
+    return posts.filter(post => !hasVisualContent(post)).length;
+  }, [posts]);
   
   useEffect(() => {
     if (searchString && posts.length > 0) {
@@ -725,9 +757,46 @@ export default function Admin() {
                   className="pl-9"
                 />
               </div>
-              {searchQuery && (
-                <span className="text-sm text-muted-foreground">
-                  {filteredPosts.length} of {posts.length} posts
+            </div>
+
+            {/* Image filter buttons */}
+            <div className="flex flex-wrap gap-2 items-center mb-4">
+              <Filter className="w-4 h-4 text-muted-foreground" />
+              <Button
+                variant={imageFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setImageFilter('all')}
+                data-testid="filter-all"
+              >
+                All Posts
+              </Button>
+              <Button
+                variant={imageFilter === 'missing' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setImageFilter('missing')}
+                className={imageFilter === 'missing' ? '' : 'border-amber-300 text-amber-600 hover:bg-amber-50'}
+                data-testid="filter-missing"
+              >
+                <ImageOff className="w-4 h-4 mr-1" />
+                Missing Images
+                {missingImagesCount > 0 && (
+                  <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full">
+                    {missingImagesCount}
+                  </span>
+                )}
+              </Button>
+              <Button
+                variant={imageFilter === 'has-image' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setImageFilter('has-image')}
+                data-testid="filter-has-image"
+              >
+                <Image className="w-4 h-4 mr-1" />
+                Has Image
+              </Button>
+              {(searchQuery || imageFilter !== 'all') && (
+                <span className="text-sm text-muted-foreground ml-2">
+                  Showing {filteredPosts.length} of {posts.length} posts
                 </span>
               )}
             </div>
@@ -807,9 +876,16 @@ export default function Admin() {
                 {filteredPosts.map(post => (
                   <tr key={post.id} data-testid={`post-row-${post.id}`}>
                     <td className="px-4 py-3">
-                      <Link href={`/post/${post.slug}`}>
-                        <span className="hover:text-primary cursor-pointer">{post.title}</span>
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        {!hasVisualContent(post) && (
+                          <span title="Missing image" className="text-amber-500">
+                            <ImageOff className="w-4 h-4" />
+                          </span>
+                        )}
+                        <Link href={`/post/${post.slug}`}>
+                          <span className="hover:text-primary cursor-pointer">{post.title}</span>
+                        </Link>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {formatDate(post.date)}
