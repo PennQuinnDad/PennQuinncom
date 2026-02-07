@@ -57,6 +57,14 @@ function processVideoEmbeds(content: string): string {
     }
   );
 
+  // Process WordPress [video] shortcodes
+  processed = processed.replace(
+    /\[video[^\]]*mp4="([^"]+)"[^\]]*\]\[\/video\]/gi,
+    (match, videoPath) => {
+      return `<div class="aspect-video my-4"><video src="${videoPath}" class="w-full h-full rounded-lg" controls playsinline preload="metadata"></video></div>`;
+    }
+  );
+
   return processed;
 }
 
