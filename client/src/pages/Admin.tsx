@@ -14,13 +14,14 @@ import { ImageUploadModal } from '@/components/ImageUploadModal';
 import { MediaPicker } from '@/components/MediaPicker';
 import { DateInput } from '@/components/DateInput';
 import { extractVimeoId, vimeoThumbnailUrl } from '@/lib/vimeo';
+import { TagMultiSelect } from '@/components/TagMultiSelect';
 
 type PostFormData = {
   title: string;
   slug: string;
   content: string;
-  categories: string;
-  tags: string;
+  categories: string[];
+  tags: string[];
   featuredImage: string;
   galleryImages: string[];
   galleryVideos: string[];
@@ -206,20 +207,24 @@ function PostForm({
   onSave,
   onCancel,
   onDelete,
-  isSaving
+  isSaving,
+  availableCategories,
+  availableTags,
 }: {
   post?: Post;
   onSave: (data: PostFormData) => void;
   onCancel: () => void;
   onDelete?: () => void;
   isSaving: boolean;
+  availableCategories: string[];
+  availableTags: string[];
 }) {
   const [formData, setFormData] = useState<PostFormData>({
     title: post?.title || '',
     slug: post?.slug || '',
     content: post?.content || '',
-    categories: post?.categories?.join(', ') || '',
-    tags: post?.tags?.join(', ') || '',
+    categories: post?.categories ?? [],
+    tags: post?.tags ?? [],
     featuredImage: post?.featuredImage || '',
     galleryImages: post?.galleryImages || [],
     galleryVideos: post?.galleryVideos || [],
@@ -558,24 +563,26 @@ function PostForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Categories (comma-separated)</label>
-            <ClearableInput
-              data-testid="input-categories"
-              value={formData.categories}
-              onChange={(e) => setFormData(prev => ({ ...prev, categories: e.target.value }))}
-              onClear={() => setFormData(prev => ({ ...prev, categories: '' }))}
-              placeholder="2024, Family"
+            <label className="block text-sm font-medium mb-1">Categories</label>
+            <TagMultiSelect
+              available={availableCategories}
+              selected={formData.categories}
+              onChange={(next) => setFormData(prev => ({ ...prev, categories: next }))}
+              placeholder="Select or create categories..."
+              noun="category"
+              testIdPrefix="categories"
             />
           </div>
-          
+
           <div>
-            <label className="block text-sm font-medium mb-1">Tags (comma-separated)</label>
-            <ClearableInput
-              data-testid="input-tags"
-              value={formData.tags}
-              onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
-              onClear={() => setFormData(prev => ({ ...prev, tags: '' }))}
-              placeholder="Penn, Quinn, Vacation"
+            <label className="block text-sm font-medium mb-1">Tags</label>
+            <TagMultiSelect
+              available={availableTags}
+              selected={formData.tags}
+              onChange={(next) => setFormData(prev => ({ ...prev, tags: next }))}
+              placeholder="Select or create tags..."
+              noun="tag"
+              testIdPrefix="tags"
             />
           </div>
         </div>
@@ -640,6 +647,18 @@ export default function Admin() {
     }
   };
   
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of posts) for (const c of p.categories) if (c) set.add(c);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [posts]);
+
+  const availableTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of posts) for (const t of p.tags) if (t) set.add(t);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [posts]);
+
   const filteredPosts = useMemo(() => {
     let result = posts;
 
@@ -738,8 +757,8 @@ export default function Admin() {
       excerpt: '',
       status: 'publish',
       type: 'post',
-      categories: formData.categories.split(',').map(c => c.trim()).filter(Boolean),
-      tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
+      categories: formData.categories,
+      tags: formData.tags,
       featuredImage: formData.featuredImage || null,
       galleryImages: formData.galleryImages,
       galleryVideos: formData.galleryVideos,
@@ -755,8 +774,8 @@ export default function Admin() {
         slug: formData.slug,
         content: formData.content,
         date: formData.date.toISOString(),
-        categories: formData.categories.split(',').map(c => c.trim()).filter(Boolean),
-        tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
+        categories: formData.categories,
+        tags: formData.tags,
         featuredImage: formData.featuredImage || null,
         galleryImages: formData.galleryImages,
         galleryVideos: formData.galleryVideos,
@@ -896,10 +915,12 @@ export default function Admin() {
               onSave={handleCreate}
               onCancel={() => setIsCreating(false)}
               isSaving={createMutation.isPending}
+              availableCategories={availableCategories}
+              availableTags={availableTags}
             />
           </div>
         )}
-        
+
         {editingPost && (
           <div className="mb-8">
             <PostForm
@@ -908,6 +929,8 @@ export default function Admin() {
               onCancel={() => setEditingPost(null)}
               onDelete={() => handleDelete(editingPost)}
               isSaving={updateMutation.isPending}
+              availableCategories={availableCategories}
+              availableTags={availableTags}
             />
           </div>
         )}
