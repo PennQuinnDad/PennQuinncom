@@ -337,7 +337,9 @@ cat .env
 
 ### Updating the Site
 
-The deploy has two viable shapes — pick based on whether the box has swap (see "Memory and swap" in the Current Deployment section above).
+**For routine deploys, just run `npm run deploy` from your local repo root.** It does everything in `scripts/deploy.sh`: builds locally, runs `db:push`, ships `dist/` via `scp`, atomic-swaps, restarts the systemd unit, and verifies. One-time prereqs: `npm install` locally (so drizzle-kit is available) and a `Host pennquinn` block in your `~/.ssh/config`.
+
+If something goes sideways and you need to drive the deploy by hand, the two manual shapes are documented below — pick based on whether the box has swap (see "Memory and swap" in the Current Deployment section above).
 
 #### Method A — build on the box (requires swap)
 
