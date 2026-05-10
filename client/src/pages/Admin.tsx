@@ -13,6 +13,7 @@ import { Plus, Pencil, Trash2, X, Save, LogIn, Upload, Image, Video, Search, Arr
 import { ImageUploadModal } from '@/components/ImageUploadModal';
 import { MediaPicker } from '@/components/MediaPicker';
 import { DateInput } from '@/components/DateInput';
+import { extractVimeoId, vimeoThumbnailUrl } from '@/lib/vimeo';
 
 type PostFormData = {
   title: string;
@@ -22,6 +23,7 @@ type PostFormData = {
   tags: string;
   featuredImage: string;
   galleryImages: string[];
+  galleryVideos: string[];
   date: Date;
 };
 
@@ -50,19 +52,6 @@ function hasVisualContent(post: Post): boolean {
 }
 
 type ImageFilter = 'all' | 'missing' | 'has-image';
-
-function extractVimeoId(url: string): string | null {
-  const patterns = [
-    /vimeo\.com\/manage\/videos\/(\d+)/,
-    /vimeo\.com\/(\d+)/,
-    /player\.vimeo\.com\/video\/(\d+)/,
-  ];
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-  return null;
-}
 
 function QuickVideoPost({ onCreated }: { onCreated: () => void }) {
   const [videoUrl, setVideoUrl] = useState('');
@@ -159,6 +148,7 @@ function QuickVideoPost({ onCreated }: { onCreated: () => void }) {
       tags: [],
       featuredImage: thumbnail || '',
       galleryImages: [],
+      galleryVideos: [],
     });
   };
 
@@ -232,8 +222,27 @@ function PostForm({
     tags: post?.tags?.join(', ') || '',
     featuredImage: post?.featuredImage || '',
     galleryImages: post?.galleryImages || [],
+    galleryVideos: post?.galleryVideos || [],
     date: post?.date ? new Date(post.date) : new Date(),
   });
+  const [videoUrlInput, setVideoUrlInput] = useState('');
+  const { toast } = useToast();
+
+  const addGalleryVideo = (raw: string) => {
+    const url = raw.trim();
+    if (!url) return;
+    const id = extractVimeoId(url);
+    if (!id) {
+      toast({ title: 'Invalid Vimeo URL', variant: 'destructive' });
+      return;
+    }
+    setFormData(prev =>
+      prev.galleryVideos.includes(url)
+        ? prev
+        : { ...prev, galleryVideos: [...prev.galleryVideos, url] }
+    );
+    setVideoUrlInput('');
+  };
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [mediaPickerTarget, setMediaPickerTarget] = useState<'featured' | 'gallery' | 'content'>('featured');
 
@@ -471,7 +480,72 @@ function PostForm({
             </label>
           </div>
         </div>
-        
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Video Gallery</label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Add Vimeo videos to display in a clickable thumbnail grid below the post.
+          </p>
+          <div className="flex gap-2 mb-2">
+            <Input
+              data-testid="input-gallery-video-url"
+              value={videoUrlInput}
+              onChange={(e) => setVideoUrlInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addGalleryVideo(videoUrlInput);
+                }
+              }}
+              placeholder="https://vimeo.com/123456789"
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              data-testid="button-add-gallery-video"
+              onClick={() => addGalleryVideo(videoUrlInput)}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Add Video
+            </Button>
+          </div>
+
+          {formData.galleryVideos.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+              {formData.galleryVideos.map((url, index) => (
+                <div
+                  key={`${url}-${index}`}
+                  className="relative aspect-video bg-muted rounded overflow-hidden group"
+                  data-testid={`gallery-video-${index}`}
+                >
+                  <img
+                    src={vimeoThumbnailUrl(url)}
+                    alt={`Video ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center">
+                      <Video className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({
+                      ...prev,
+                      galleryVideos: prev.galleryVideos.filter((_, i) => i !== index)
+                    }))}
+                    className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    data-testid={`button-remove-gallery-video-${index}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Categories (comma-separated)</label>
@@ -658,9 +732,10 @@ export default function Admin() {
       tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
       featuredImage: formData.featuredImage || null,
       galleryImages: formData.galleryImages,
+      galleryVideos: formData.galleryVideos,
     });
   };
-  
+
   const handleUpdate = (formData: PostFormData) => {
     if (!editingPost) return;
     updateMutation.mutate({
@@ -674,6 +749,7 @@ export default function Admin() {
         tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
         featuredImage: formData.featuredImage || null,
         galleryImages: formData.galleryImages,
+        galleryVideos: formData.galleryVideos,
       },
     });
   };
