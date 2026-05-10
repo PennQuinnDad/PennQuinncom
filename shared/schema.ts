@@ -18,6 +18,7 @@ export const posts = pgTable("posts", {
   tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
   featuredImage: text("featured_image"),
   galleryImages: text("gallery_images").array().notNull().default(sql`'{}'::text[]`),
+  galleryVideos: text("gallery_videos").array().notNull().default(sql`'{}'::text[]`),
 });
 
 export const media = pgTable("media", {

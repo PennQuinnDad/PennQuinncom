@@ -13,6 +13,7 @@ export interface Post {
   tags: string[];
   featuredImage?: string | null;
   galleryImages: string[];
+  galleryVideos: string[];
 }
 
 export async function fetchAllPosts(): Promise<Post[]> {

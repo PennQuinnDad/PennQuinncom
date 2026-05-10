@@ -1,12 +1,14 @@
-import { useMemo, memo, useEffect } from 'react';
+import { useMemo, memo, useEffect, useState } from 'react';
 import { Link, useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import { fetchPostBySlug, fetchAllPosts, formatDate, type Post } from '@/lib/posts';
 import { useAuth } from '@/hooks/use-auth';
 import { Header } from '@/components/Header';
-import { Calendar, Tag, Home, ChevronLeft, ChevronRight, Pencil, ArrowLeft } from 'lucide-react';
+import { Calendar, Tag, Home, ChevronLeft, ChevronRight, Pencil, ArrowLeft, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { vimeoThumbnailUrl, vimeoEmbedUrl } from '@/lib/vimeo';
 
 // Tag color classes - consistent colors based on tag name
 const TAG_COLORS = ['tag-blue', 'tag-purple', 'tag-pink', 'tag-coral', 'tag-amber', 'tag-teal', 'tag-green'];
@@ -130,6 +132,7 @@ export default function PostPage() {
   const slug = params.slug;
   const [, setLocation] = useLocation();
   const { isAuthenticated } = useAuth();
+  const [activeVideo, setActiveVideo] = useState<string | null>(null);
 
   const { data: post, isLoading: postLoading } = useQuery({
     queryKey: ['post', slug],
@@ -296,17 +299,17 @@ export default function PostPage() {
               <h3 className="font-display text-xl mb-4">Gallery</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 {post.galleryImages.map((url, index) => (
-                  <a 
-                    key={index} 
-                    href={url} 
-                    target="_blank" 
+                  <a
+                    key={index}
+                    href={url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="aspect-square overflow-hidden rounded-lg bg-muted hover:opacity-90 transition-opacity"
                     data-testid={`gallery-image-${index}`}
                   >
-                    <img 
-                      src={url} 
-                      alt={`Gallery image ${index + 1}`} 
+                    <img
+                      src={url}
+                      alt={`Gallery image ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
                   </a>
@@ -314,7 +317,58 @@ export default function PostPage() {
               </div>
             </div>
           )}
+
+          {post.galleryVideos && post.galleryVideos.length > 0 && (
+            <div className="mt-8 pt-8 border-t border-border">
+              <h3 className="font-display text-xl mb-4">Videos</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {post.galleryVideos.map((url, index) => (
+                  <button
+                    key={`${url}-${index}`}
+                    type="button"
+                    onClick={() => setActiveVideo(url)}
+                    className="group relative aspect-video overflow-hidden rounded-lg bg-muted hover:opacity-90 transition-opacity"
+                    data-testid={`gallery-video-${index}`}
+                    aria-label={`Play video ${index + 1}`}
+                  >
+                    <img
+                      src={vimeoThumbnailUrl(url)}
+                      alt={`Video ${index + 1} thumbnail`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-14 h-14 rounded-full bg-black/60 flex items-center justify-center group-hover:bg-black/80 group-hover:scale-110 transition-all">
+                        <Play className="w-6 h-6 text-white fill-white ml-1" />
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </article>
+
+        <Dialog
+          open={activeVideo !== null}
+          onOpenChange={(open) => { if (!open) setActiveVideo(null); }}
+        >
+          <DialogContent className="max-w-5xl p-0 border-0 bg-transparent shadow-none">
+            <DialogTitle className="sr-only">Video player</DialogTitle>
+            <div className="aspect-video w-full bg-black rounded-lg overflow-hidden">
+              {activeVideo && (
+                <iframe
+                  src={vimeoEmbedUrl(activeVideo, { autoplay: true })}
+                  className="w-full h-full"
+                  frameBorder={0}
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                  data-testid="video-lightbox-iframe"
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
         
         <nav className="mt-12 pt-8 border-t border-border">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
