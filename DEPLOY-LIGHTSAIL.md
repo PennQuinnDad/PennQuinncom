@@ -13,6 +13,54 @@ You'll set up:
 
 ---
 
+## Current Deployment (Reality, as of 2026-05-10)
+
+The from-scratch setup guide below describes the *intended* setup. The actual live deployment took some different paths — when in doubt, **trust this section over the steps below**.
+
+### Live infrastructure
+
+- **Instance**: `pennquinn-web` in `us-west-2a` (Oregon). 512 MB RAM / 2 vCPU / 20 GB SSD. Bitnami Node.js blueprint.
+- **Static IP**: `35.162.150.115` (also reachable via the `pennquinn` SSH alias if your `~/.ssh/config` has a `Host pennquinn` block pointing at it).
+- **Reverse proxy**: Bitnami Apache fronts the Node app on `:3000`. Cloudflare fronts Apache.
+- **CDN / TLS**: Cloudflare (DNS A records for `pennquinn.com` point at `35.162.150.115`).
+
+### App layout on the box
+
+- **Repo path**: `/home/bitnami/PennQuinncom` (NOT `/opt/bitnami/pennquinn`).
+- **Built bundle**: `/home/bitnami/PennQuinncom/dist/index.cjs`. The `dist/` directory is gitignored — it must be built (or shipped from a laptop) every deploy.
+- **Static assets**: `/home/bitnami/PennQuinncom/dist/public/`.
+- **Process supervisor**: **systemd**, NOT pm2. Unit file: `/etc/systemd/system/pennquinn.service`.
+- **Runtime env** (`DATABASE_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `NODE_ENV`, `PORT`) is set via `Environment=` lines in the systemd unit file. A `.env` file with the same keys also exists in the repo, but the systemd unit is the canonical source — the runtime ignores `.env`.
+
+### Memory and swap (important)
+
+The 512 MB plan is **enough to run the app** (~40 MB RAM in use) but **not enough to run `npm run build`** — Vite OOMs every time without swap. Two options:
+
+1. **Add 4 GB swap on the box** (one-time, persistent across reboots):
+   ```bash
+   ssh pennquinn 'sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo "/swapfile none swap sw 0 0" | sudo tee -a /etc/fstab && free -h'
+   ```
+2. **Build locally and `scp dist/` over** — see "Updating the Site" in the Maintenance section below.
+
+If you ever run `npm run build` on the box without swap, it will delete `dist/` and die before recreating it. The next service start will fail with `Cannot find module '.../dist/index.cjs'`. Recovery requires shipping a known-good `dist/` from elsewhere.
+
+### Database migrations (`db:push`)
+
+`drizzle-kit push` reads `DATABASE_URL` from `process.env`, but on this box it's only set in the systemd unit (not the shell). You have to extract it before running `db:push`:
+
+```bash
+ssh -t pennquinn '
+export PATH="/opt/bitnami/node/bin:$PATH"
+cd ~/PennQuinncom
+DB_URL=$(sudo grep -m1 "^Environment=DATABASE_URL=" /etc/systemd/system/pennquinn.service | sed "s/^Environment=DATABASE_URL=//")
+DATABASE_URL="$DB_URL" npm run db:push
+'
+```
+
+`PATH` needs Bitnami's node directory because non-interactive SSH doesn't pick it up.
+
+---
+
 ## Step 1: Create an AWS Account (if you don't have one)
 
 1. Go to https://aws.amazon.com
@@ -278,9 +326,10 @@ cat .env
 - Check that the database endpoint, username, and password are correct
 
 ### Site not loading
-- Check that port 5000 is open in the firewall
-- Verify PM2 shows the app as "online": `pm2 status`
-- Check logs: `pm2 logs`
+- Check the systemd service status: `ssh pennquinn 'sudo systemctl status pennquinn -n 20 --no-pager'`
+- Check logs: `ssh pennquinn 'sudo journalctl -u pennquinn -n 100 --no-pager'`
+- Verify the Node app is listening on `:3000`: `ssh pennquinn 'curl -sI http://localhost:3000/'`
+- If you see `Cannot find module '.../dist/index.cjs'` → a previous build failed and deleted `dist/`. See "Memory and swap" above; recovery is in "Updating the Site" Method B.
 
 ---
 
@@ -288,18 +337,77 @@ cat .env
 
 ### Updating the Site
 
+The deploy has two viable shapes — pick based on whether the box has swap (see "Memory and swap" in the Current Deployment section above).
+
+#### Method A — build on the box (requires swap)
+
 ```bash
-cd /opt/bitnami/pennquinn
-git pull
-npm install
+ssh pennquinn 'set -e
+cd ~/PennQuinncom
+git fetch origin main && git reset --hard origin/main
+npm ci
+
+# Apply schema changes (db:push needs DATABASE_URL, which lives in the systemd unit)
+export PATH="/opt/bitnami/node/bin:$PATH"
+DB_URL=$(sudo grep -m1 "^Environment=DATABASE_URL=" /etc/systemd/system/pennquinn.service | sed "s/^Environment=DATABASE_URL=//")
+DATABASE_URL="$DB_URL" npm run db:push
+
 npm run build
-pm2 restart pennquinn
+sudo systemctl restart pennquinn
+'
 ```
+
+If `db:push` would print a destructive change (rename, drop, truncate) it will prompt — wrap with `ssh -t` instead so you get an interactive TTY.
+
+#### Method B — build locally, ship `dist/` (no swap needed)
+
+On your laptop in a clean checkout of `main`:
+
+```bash
+git fetch origin main && git checkout main && git pull
+npm ci
+npm run build
+scp -r dist pennquinn:~/PennQuinncom/dist.new
+```
+
+If the new code has schema changes, apply them first (interactive — answer `y` if prompted):
+
+```bash
+ssh -t pennquinn '
+export PATH="/opt/bitnami/node/bin:$PATH"
+cd ~/PennQuinncom
+DB_URL=$(sudo grep -m1 "^Environment=DATABASE_URL=" /etc/systemd/system/pennquinn.service | sed "s/^Environment=DATABASE_URL=//")
+DATABASE_URL="$DB_URL" npm run db:push
+'
+```
+
+Then atomic-swap `dist/` and restart:
+
+```bash
+ssh pennquinn 'set -e
+cd ~/PennQuinncom
+mv dist dist.previous && mv dist.new dist
+sudo systemctl restart pennquinn
+sleep 3
+sudo systemctl status pennquinn -n 5 --no-pager
+curl -sI -m 5 http://localhost:3000/ | head -3
+'
+```
+
+`dist.previous` is your one-step rollback target — `mv dist dist.broken && mv dist.previous dist && sudo systemctl restart pennquinn`.
 
 ### Viewing Logs
 
 ```bash
-pm2 logs pennquinn
+ssh pennquinn 'sudo journalctl -u pennquinn -n 100 --no-pager'
+# or follow live:
+ssh pennquinn 'sudo journalctl -u pennquinn -f'
+```
+
+### Restarting the App
+
+```bash
+ssh pennquinn 'sudo systemctl restart pennquinn'
 ```
 
 ### Database Backups
