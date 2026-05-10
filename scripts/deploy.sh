@@ -2,21 +2,21 @@
 # Deploy this repo to the production Lightsail box.
 #
 # Builds locally (Vite OOMs on the 512 MB box without swap), pushes any DB
-# schema changes, scp's dist/ to the server, atomic-swaps it, and restarts
-# the systemd unit. Verifies localhost + the public URL before exiting.
+# schema changes from the server (the DB is VPC-private, not reachable
+# from your laptop), scp's dist/ to the server, atomic-swaps it, and
+# restarts the systemd unit. Verifies localhost + the public URL.
 #
 # Usage:   npm run deploy
 #          ./scripts/deploy.sh
 #
 # Prereqs (one-time):
-#   - Run `npm install` so drizzle-kit is available locally for db:push.
 #   - `~/.ssh/config` has a `Host pennquinn` block pointing at the Lightsail
 #     box with the right key (see DEPLOY-LIGHTSAIL.md "Current Deployment").
 
 set -euo pipefail
 
 REMOTE="pennquinn"
-REMOTE_DIR='$HOME/PennQuinncom'
+REMOTE_DIR="/home/bitnami/PennQuinncom"
 NODE_BIN="/opt/bitnami/node/bin"
 
 # Resolve to repo root
@@ -37,7 +37,7 @@ bold " Deploying PennQuinn.com"
 bold "=========================================="
 echo "  Local HEAD : ${head_sha} (${head_subject})"
 echo "  Branch     : ${branch}"
-echo "  Target     : ${REMOTE}"
+echo "  Target     : ${REMOTE} (${REMOTE_DIR})"
 bold "=========================================="
 echo
 
@@ -59,27 +59,35 @@ fi
 size=$(du -h dist/index.cjs | cut -f1)
 ok "    built dist/index.cjs (${size})"
 
-# ---- Step 2: pull DATABASE_URL from server ----
-bold "==> [2/5] Reading DATABASE_URL from server's systemd unit..."
-db_url=$(ssh -o BatchMode=yes "${REMOTE}" \
-  "sudo grep -m1 '^Environment=DATABASE_URL=' /etc/systemd/system/pennquinn.service | sed 's/^Environment=DATABASE_URL=//'")
-if [ -z "${db_url}" ]; then
-  err "Could not extract DATABASE_URL from /etc/systemd/system/pennquinn.service on ${REMOTE}."
+# ---- Step 2: sync server source + run db:push ON the server ----
+# The DB is on a VPC-private IP and not reachable from your laptop,
+# so db:push has to run on the box. We also fast-forward the server's
+# git checkout so drizzle-kit sees the new schema.ts.
+bold "==> [2/5] Syncing server git checkout and running db:push..."
+if ! ssh -o BatchMode=yes "${REMOTE}" "
+  set -e
+  export PATH='${NODE_BIN}:\$PATH'
+  cd ${REMOTE_DIR}
+  git fetch origin main >/dev/null 2>&1
+  git reset --hard origin/main >/dev/null
+  echo \"    server source -> \$(git rev-parse --short HEAD)\"
+  DB_URL=\$(sudo grep -m1 '^Environment=DATABASE_URL=' /etc/systemd/system/pennquinn.service | sed 's/^Environment=DATABASE_URL=//')
+  if [ -z \"\$DB_URL\" ]; then
+    echo 'ERROR: could not extract DATABASE_URL from systemd unit' >&2
+    exit 1
+  fi
+  DATABASE_URL=\"\$DB_URL\" npm run db:push
+"; then
+  err "Step 2 failed. Aborting before any production write so the live site stays on the old bundle."
   exit 1
 fi
-db_host=$(printf '%s' "${db_url}" | sed -E 's|.*@([^/]+).*|\1|')
-ok "    using DB at ${db_host}"
 
-# ---- Step 3: apply schema changes (idempotent — no-op if no diff) ----
-bold "==> [3/5] Running db:push (idempotent — exits fast if no changes)..."
-if ! DATABASE_URL="${db_url}" npm run db:push; then
-  err "db:push failed. Aborting before swap so the live site stays on the old bundle."
-  exit 1
-fi
-
-# ---- Step 4: scp + atomic swap + restart ----
-bold "==> [4/5] Uploading dist/, swapping, and restarting service..."
+# ---- Step 3: scp dist/ to server ----
+bold "==> [3/5] Uploading dist/ to ${REMOTE_DIR}/dist.new ..."
 scp -q -o BatchMode=yes -r dist "${REMOTE}:${REMOTE_DIR}/dist.new"
+
+# ---- Step 4: atomic swap + restart ----
+bold "==> [4/5] Atomic-swapping dist/ and restarting service..."
 ssh -o BatchMode=yes "${REMOTE}" "
   set -e
   cd ${REMOTE_DIR}
