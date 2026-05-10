@@ -64,20 +64,21 @@ ok "    built dist/index.cjs (${size})"
 # so db:push has to run on the box. We also fast-forward the server's
 # git checkout so drizzle-kit sees the new schema.ts.
 bold "==> [2/5] Syncing server git checkout and running db:push..."
-if ! ssh -o BatchMode=yes "${REMOTE}" "
-  set -e
-  export PATH='${NODE_BIN}:\$PATH'
-  cd ${REMOTE_DIR}
-  git fetch origin main >/dev/null 2>&1
-  git reset --hard origin/main >/dev/null
-  echo \"    server source -> \$(git rev-parse --short HEAD)\"
-  DB_URL=\$(sudo grep -m1 '^Environment=DATABASE_URL=' /etc/systemd/system/pennquinn.service | sed 's/^Environment=DATABASE_URL=//')
-  if [ -z \"\$DB_URL\" ]; then
-    echo 'ERROR: could not extract DATABASE_URL from systemd unit' >&2
-    exit 1
-  fi
-  DATABASE_URL=\"\$DB_URL\" npm run db:push
-"; then
+if ! ssh -o BatchMode=yes "${REMOTE}" bash <<EOF
+set -e
+export PATH="${NODE_BIN}:\$PATH"
+cd ${REMOTE_DIR}
+git fetch origin main
+git reset --hard origin/main
+echo "    server source -> \$(git rev-parse --short HEAD)"
+DB_URL=\$(sudo grep -m1 '^Environment=DATABASE_URL=' /etc/systemd/system/pennquinn.service | sed 's/^Environment=DATABASE_URL=//')
+if [ -z "\$DB_URL" ]; then
+  echo 'ERROR: could not extract DATABASE_URL from systemd unit' >&2
+  exit 1
+fi
+DATABASE_URL="\$DB_URL" npm run db:push
+EOF
+then
   err "Step 2 failed. Aborting before any production write so the live site stays on the old bundle."
   exit 1
 fi
