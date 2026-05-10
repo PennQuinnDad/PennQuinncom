@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ClearableInput } from '@/components/ClearableInput';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, X, Save, LogIn, Upload, Image, Video, Search, ArrowUpDown, ArrowUp, ArrowDown, ImagePlus, FolderOpen, ImageOff, Filter } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, LogIn, Upload, Image, Video, Search, ArrowUpDown, ArrowUp, ArrowDown, ImagePlus, FolderOpen, ImageOff, Filter, ExternalLink } from 'lucide-react';
 import { ImageUploadModal } from '@/components/ImageUploadModal';
 import { MediaPicker } from '@/components/MediaPicker';
 import { DateInput } from '@/components/DateInput';
@@ -284,10 +284,20 @@ function PostForm({
       mediaType="image"
     />
     <div className="bg-card border border-border rounded-lg p-6">
-      <h3 className="font-display text-xl mb-4">
-        {post ? 'Edit Post' : 'New Post'}
-      </h3>
-      
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-display text-xl">
+          {post ? 'Edit Post' : 'New Post'}
+        </h3>
+        {post?.slug && (
+          <Button asChild variant="outline" size="sm" data-testid="button-view-post">
+            <a href={`/post/${post.slug}`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="w-4 h-4 mr-2" />
+              View post
+            </a>
+          </Button>
+        )}
+      </div>
+
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-1">Title</label>
