@@ -59,11 +59,13 @@ fi
 size=$(du -h dist/index.cjs | cut -f1)
 ok "    built dist/index.cjs (${size})"
 
-# ---- Step 2: sync server source + run db:push ON the server ----
-# The DB is on a VPC-private IP and not reachable from your laptop,
-# so db:push has to run on the box. We also fast-forward the server's
-# git checkout so drizzle-kit sees the new schema.ts.
-bold "==> [2/5] Syncing server git checkout and running db:push..."
+# ---- Step 2: sync server source, deps, and schema ----
+# Three things have to be in sync on the server before we ship the new bundle:
+#   1. shared/schema.ts (so drizzle-kit's db:push diffs against the right schema)
+#   2. node_modules (any externalized deps in dist/index.cjs need to be present
+#      at runtime — bit us when the dotenv import was first added)
+#   3. the DB schema itself (db:push)
+bold "==> [2/5] Syncing server source, deps, and schema..."
 if ! ssh -o BatchMode=yes "${REMOTE}" bash <<EOF
 set -e
 export PATH="${NODE_BIN}:\$PATH"
@@ -71,6 +73,8 @@ cd ${REMOTE_DIR}
 git fetch origin main
 git reset --hard origin/main
 echo "    server source -> \$(git rev-parse --short HEAD)"
+echo "    installing server deps (npm ci)..."
+npm ci --silent --prefer-offline
 DB_URL=\$(sudo grep -m1 '^Environment=DATABASE_URL=' /etc/systemd/system/pennquinn.service | sed 's/^Environment=DATABASE_URL=//')
 if [ -z "\$DB_URL" ]; then
   echo 'ERROR: could not extract DATABASE_URL from systemd unit' >&2
