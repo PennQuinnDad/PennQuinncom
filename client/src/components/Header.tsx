@@ -12,7 +12,7 @@ export function Header({ showAdminLink = true }: HeaderProps) {
 
   return (
     <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div className="max-w-screen-2xl mx-auto px-6 py-5 flex items-center justify-between">
         <div>
           <Link href="/">
             <h1

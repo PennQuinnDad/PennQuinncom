@@ -334,7 +334,7 @@ export default function Home() {
     <div className="min-h-screen">
       <Header />
       
-      <main className="max-w-6xl mx-auto px-6 py-10">
+      <main className="max-w-screen-2xl mx-auto px-6 py-10">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display text-2xl">Latest Posts</h2>
@@ -443,7 +443,7 @@ export default function Home() {
         </div>
         
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="bg-card rounded-xl overflow-hidden shadow-sm border border-card-border animate-pulse">
                 <div className="aspect-[4/3] bg-muted" />
@@ -460,7 +460,7 @@ export default function Home() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
               {paginatedPosts.map(post => (
                 <PostCard key={post.id} post={post} onTagClick={handleTagClick} />
               ))}
@@ -548,7 +548,7 @@ export default function Home() {
       </main>
       
       <footer className="border-t border-border mt-16 py-8">
-        <div className="max-w-6xl mx-auto px-6 text-center text-muted-foreground text-sm">
+        <div className="max-w-screen-2xl mx-auto px-6 text-center text-muted-foreground text-sm">
           <p>&copy; {new Date().getFullYear()} PennQuinn.com. All rights reserved.</p>
         </div>
       </footer>

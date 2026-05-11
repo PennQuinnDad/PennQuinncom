@@ -426,7 +426,7 @@ function PostForm({
             </Button>
           </div>
 
-          <div className="grid grid-cols-4 gap-2 mb-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 mb-2">
             {formData.galleryImages.map((url, index) => (
               <div key={index} className="relative aspect-square bg-muted rounded overflow-hidden group">
                 <img src={url} alt={`Gallery ${index + 1}`} className="w-full h-full object-cover" />
@@ -527,7 +527,7 @@ function PostForm({
           </div>
 
           {formData.galleryVideos.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
               {formData.galleryVideos.map((url, index) => (
                 <div
                   key={`${url}-${index}`}
@@ -831,7 +831,7 @@ export default function Admin() {
     <div className="min-h-screen">
       <Header showAdminLink={false} />
       
-      <main className="max-w-6xl mx-auto px-6 py-10">
+      <main className="max-w-screen-2xl mx-auto px-6 py-10">
         <div className="mb-8">
           <h2 className="font-display text-2xl">Manage Posts</h2>
           <p className="text-muted-foreground text-sm">Welcome back, {user?.firstName || user?.email || 'Admin'}</p>
