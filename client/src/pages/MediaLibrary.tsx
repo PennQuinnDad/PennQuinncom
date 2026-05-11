@@ -179,7 +179,7 @@ export default function MediaLibrary() {
     <div className="min-h-screen">
       <Header showAdminLink={false} />
 
-      <main className="max-w-7xl mx-auto px-6 py-10">
+      <main className="max-w-screen-2xl mx-auto px-6 py-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
@@ -276,7 +276,7 @@ export default function MediaLibrary() {
               </p>
             </div>
           ) : viewMode === 'grid' ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-4">
               {filteredMedia.map(item => (
                 <div
                   key={item.id}
